@@ -1,0 +1,10 @@
+
+>SQLITE guarda la BD en un archivo, no requiere instalación
+
+Nota: La BD se usa desde consola, requiere: (1.15 MiB) de espacio 
+libre para Windows x64-bits	
+
+Ej BD: .open 'nameDB'.db //Crea o abre la BD 
+
+>Descarga sqlite3
+https://www.sqlite.org/download.html
