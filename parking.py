@@ -26,9 +26,12 @@ def createDB():
 def createTableEspacio():
     conn = sql.connect("myparking.db")
     cursor = conn.cursor() #Conecta con una consulta
-    cursor.execute("""CREATE TABLE espacio(
-     ID varchar(10),estado int, discapacitado int, primary key(ID)
-    );
+    cursor.execute("""CREATE TABLE espacio (
+                        numCajon INT(10) PRIMARY KEY,
+                        seccion VARCHAR(30),
+                        estado BOOLEAN DEFAULT FALSE,
+                        fecha_hora TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        );
     """)
     conn.commit() #Realiza cambios
     conn.close()
@@ -50,7 +53,7 @@ def createTableAdmin():
 def insertEspacio(next_espacio):
     conn = sql.connect("myparking.db")
     cursor = conn.cursor() #Conecta con una consulta
-    cursor.execute("INSERT INTO espacio(ID,estado,discapacitado) VALUES (?,?,?)",(next_espacio,0,0))
+    cursor.execute("INSERT INTO espacio(numCajon,seccion) VALUES (?,?)",(next_espacio,next_espacio[0]))
     conn.commit() #Realiza cambios
     conn.close()
 
@@ -65,7 +68,7 @@ def updateDiscapacitado(espacio):
 def deleteEspacio(ant_espacio):
     conn = sql.connect("myparking.db")
     cursor = conn.cursor() #Conecta con una consulta
-    cursor.execute("DELETE FROM espacio where ID ='"+str(ant_espacio)+"'")
+    cursor.execute("DELETE FROM espacio where numCajon ='"+str(ant_espacio)+"'")
     conn.commit() #Realiza cambios
     conn.close()
 
@@ -115,7 +118,7 @@ def espaciosSensor():
 def ocupar_desocupar(espacio,estado):
     conn = sql.connect("myparking.db")
     cursor = conn.cursor() #Conecta con una consulta
-    cursor.execute("UPDATE espacio SET estado = ? where ID = ?",(estado,espacio))
+    cursor.execute("UPDATE espacio SET estado = ? where numCajon = ?",(estado,espacio))
     #Actualiza el estado de un espacio
     conn.commit() #Realiza cambios
     conn.close()
@@ -133,7 +136,7 @@ def selectEspacios():
 def selectEspacio(espacio):
     conn = sql.connect("myparking.db")
     cursor = conn.cursor() #Conecta con una consulta
-    cursor.execute("SELECT ID,estado,discapacitado FROM espacio where ID = '"+str(espacio)+"'")
+    cursor.execute("SELECT * FROM espacio where numCajon = '"+str(espacio)+"'")
     #Obtiene un espacio del parking 
     datos = cursor.fetchall() #Regresa los datos de la consulta (Los lee y los regresa)
     conn.commit() #Realiza cambios

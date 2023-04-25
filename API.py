@@ -1,10 +1,9 @@
 
 from parking import *
 from flask_restful import Api, Resource,request
-from flask import Flask,jsonify
+from flask import Flask
 from flask_cors import CORS
 
-import json
 
 FLASK_DEBUG=1
 
@@ -17,14 +16,15 @@ CORS(app)
 #Lugares de estacionamiento
 
 class Lugar():
-    def __init__(self,id,estado,discapacitado):
-        self.id = id
+    def __init__(self,numCajon,seccion,estado,fecha_hora):
+        self.numCajon = numCajon
+        self.seccion = seccion
         self.estado = estado
-        self.discapacitado = discapacitado
+        self.fecha_hora = fecha_hora
     #Convertir lugar en diccionario de python y asignarle nombres a los campos
     def diccionario(self):
-        return {"ID": self.id, "estado": self.estado,
-                            "discapacitado": self.discapacitado}
+        return {"numCajon": self.numCajon, "seccion":self.seccion,"estado": self.estado,
+                            "fecha_hora": self.fecha_hora}
        
 #CRUD lugares
 
@@ -41,7 +41,8 @@ class InsertEspacio(Resource):
                 self.response["estatus"] = 201
                 self.response["mensaje"] = "Espacio creado exitosamente"
                 espacioNuevo = selectEspacio(id)
-                lugar = Lugar(espacioNuevo[0][0],espacioNuevo[0][1],espacioNuevo[0][2])
+                lugar = Lugar(espacioNuevo[0][0],espacioNuevo[0][1],espacioNuevo[0][2],
+                              espacioNuevo[0][3])
                 response = lugar.diccionario() 
                 return response, 201
             else:
@@ -70,7 +71,8 @@ class CambiarEstadoEspacio(Resource):
             else:
                 ocupar_desocupar(id,estado)
                 
-                lugar = Lugar(espacio[0][0],espacio[0][1],espacio[0][2])
+                lugar = Lugar(espacio[0][0],espacio[0][1],espacio[0][2],
+                              espacio[0][3])
                 response = lugar.diccionario() 
                 response["estado"] = estado
                 return response
@@ -86,7 +88,7 @@ class SelectEspacios(Resource):
         if id:
             espacio=selectEspacio(id)
             if espacio:
-                lugar = Lugar(espacio[0][0],espacio[0][1],espacio[0][2])
+                lugar = Lugar(espacio[0][0],espacio[0][1],espacio[0][2],espacio[0][3])
                 response = lugar.diccionario() 
                 return response
             else:
@@ -97,7 +99,7 @@ class SelectEspacios(Resource):
         if espacios:
             dict_list = []
             for i in range(len(espacios)):
-               lugar = Lugar(espacios[i][0],espacios[i][1],espacios[i][2])
+               lugar = Lugar(espacios[i][0],espacios[i][1],espacios[i][2],espacios[0][3])
                dict = lugar.diccionario() 
                dict_list.append(dict)
             return dict_list
@@ -135,7 +137,8 @@ class Admin():
     #Convertir lugar en diccionario de python y asignarle nombres a los campos
     def diccionario(self):
         return {"nombre": self.id, "RFC": self.estado,
-                            "CURP": self.discapacitado}
+                "CURP": self.CURP,
+                "RFC": self.RFC}
 
 
         
