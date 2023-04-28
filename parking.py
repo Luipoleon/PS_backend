@@ -213,12 +213,33 @@ def updateAdmin(RFC,name,passw):
 def consultarAdmin(RFC):
     conn = sql.connect("myparking.db")
     cursor = conn.cursor() #Conecta con una consulta
-    cursor.execute("SELECT RFC,CURP FROM admin where RFC = '"+str(RFC)+"'")
+    cursor.execute("SELECT RFC,nombre,CURP FROM admin where RFC = '"+str(RFC)+"'")
     #Obtiene todos los espacios del parking
     datos = cursor.fetchall() #Regresa los datos de la consulta (Los lee y los regresa)
     conn.commit() #Realiza cambios
     conn.close()
-    return datos    
+    return datos
+
+def selectAllAdmin():
+    conn = sql.connect("myparking.db")
+    cursor = conn.cursor() #Conecta con una consulta
+    cursor.execute("SELECT RFC,nombre,CURP FROM admin")
+    #Obtiene todos los espacios del parking
+    datos = cursor.fetchall() #Regresa los datos de la consulta (Los lee y los regresa)
+    conn.commit() #Realiza cambios
+    conn.close()
+    return datos     
+
+def selectCountAdmin():
+    conn = sql.connect("myparking.db")
+    cursor = conn.cursor() #Conecta con una consulta
+    cursor.execute("SELECT COUNT(*) FROM admin")
+    #Obtiene todos los espacios del parking
+    datos = cursor.fetchall() #Regresa los datos de la consulta (Los lee y los regresa)
+    conn.commit() #Realiza cambios
+    conn.close()
+    # Regresa el resultado del conteo, el cual esta dentro de una matriz de listas y tuplas
+    return datos[0][0]
 
 def parkingFull():
     can_esp = selectCountEspacios()

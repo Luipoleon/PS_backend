@@ -136,18 +136,66 @@ class Admin():
         self.CURP = CURP
     #Convertir lugar en diccionario de python y asignarle nombres a los campos
     def diccionario(self):
-        return {"nombre": self.id, "RFC": self.estado,
-                "CURP": self.CURP,
-                "RFC": self.RFC}
+        return {"nombre": self.nombre, "RFC": self.RFC,
+                "CURP": self.CURP}
 
-
+class SelectAdmin(Resource):
+    #response = {"status": 404, "msj": "Administradores no disponibles"}
+    def get(self):
+        # Checar si recibimos un parametro "RFC"
+        if 'RFC' in request.args:
+            rfc: str = request.args.get('RFC')
+            datos = consultarAdmin(rfc)
+            if datos:
+                print(datos)
+                # Extraer tupla de la lista
+                datos = datos[0]
+                administrador = Admin(RFC=datos[0], nombre=datos[1], CURP=datos[2])
+                return administrador.diccionario()
+            else:
+                return {"status": 400, "mensaje": "No encontrado"}, 400
+        else:
+            # Obtener todos los administradores
+            datos = selectAllAdmin()
+            if datos:
+                response = []
+                for i in datos:
+                    administrador = Admin(RFC=i[0], nombre=i[1], CURP=i[2])
+                    response.append(administrador.diccionario())
+                return response
+            else:
+                return {"status": 404,
+                        "mensaje": "No hay administradores registrados"}, 404
         
-    
+class InsertAdmin(Resource):
+    #response = {"status": 400, "mensaje": "Adminstrador no creado"}
+    def post(self):
+        # Salimos si se supero el limite de administradores
+        if(selectCountAdmin() >= 5):
+                return {"status": 201,
+                        "mensaje": "Limite de administradores alcanzado"},201
+        data = request.args
+        if data:
+            # Verificar si el RFC existe
+            ### TODO: Utilizar un metodo distinto para consultar IDs
+            if( consultarAdmin(data.get("RFC")) ):
+                return {"status":201, "mensaje":"RFC ya existe"},201
+            # Creamos modelo
+            newAdmin = Admin(RFC=data["RFC"], nombre=data["nombre"], CURP=data["CURP"])
+
+            insertAdmin( data["RFC"], data["nombre"], data["passwd"], data["CURP"])
+
+            print(f"Administrador agregado: {data['RFC']}")
+            return newAdmin.diccionario(), 201
+        return {"status":400, "mensaje":"No se recibieron datos"},400
+
+
 api.add_resource(SelectEspacios, "/espacios")
 api.add_resource(InsertEspacio, "/espacios/crear")
 api.add_resource(CambiarEstadoEspacio,"/espacios/estado")
 api.add_resource(DeleteEspacio,"/espacios/eliminar")
-
+api.add_resource(SelectAdmin, "/administradores")
+api.add_resource(InsertAdmin, "/administradores/add")
 
 
 
