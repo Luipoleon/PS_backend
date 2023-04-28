@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 void main() async {
-  http.Response response = await crearLugar("A2");
+  http.Response response = await eliminarLugar("D2");
   print(json.decode(response.body));
 }
 

@@ -99,7 +99,7 @@ class SelectEspacios(Resource):
         if espacios:
             dict_list = []
             for i in range(len(espacios)):
-               lugar = Lugar(espacios[i][0],espacios[i][1],espacios[i][2],espacios[0][3])
+               lugar = Lugar(espacios[i][0],espacios[i][1],espacios[i][2],espacios[i][3])
                dict = lugar.diccionario() 
                dict_list.append(dict)
             return dict_list

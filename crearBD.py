@@ -1,2 +1,2 @@
 from parking import *
-createTableEspacio()
+insertFilaDEspacio()

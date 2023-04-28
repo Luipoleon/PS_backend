@@ -11,6 +11,8 @@ import cryptocode as cryp    #CIFRADO Y DESCIFRADO
 import serial                #CONEXION CON ARDUINO 
 from time import sleep    #GENERA TIEMPOS DE ESPERA
 import threading #Permite realizar subprocesos o ejecutar funciones simultaneamente 
+import datetime #fecha y hora
+
 
 #Lineas de arduino comentadas: 17, 95-111, 209-245, 407, 457, 493-494 
 
@@ -35,6 +37,9 @@ def createTableEspacio():
     """)
     conn.commit() #Realiza cambios
     conn.close()
+    
+
+    
 
 def createTableAdmin():
     conn = sql.connect("myparking.db")
@@ -53,9 +58,30 @@ def createTableAdmin():
 def insertEspacio(next_espacio):
     conn = sql.connect("myparking.db")
     cursor = conn.cursor() #Conecta con una consulta
-    cursor.execute("INSERT INTO espacio(numCajon,seccion) VALUES (?,?)",(next_espacio,next_espacio[0]))
+    cursor.execute("INSERT INTO espacio(numCajon,seccion) VALUES (?,?)",
+                   (next_espacio,next_espacio[0]))
     conn.commit() #Realiza cambios
     conn.close()
+    
+def insertFilaDEspacio():
+    conn = sql.connect("myparking.db")
+    cursor = conn.cursor() #Conecta con una consulta
+    cursor.execute("SELECT MAX(seccion) FROM espacio")
+    conn.commit()
+    ultimaSeccion = cursor.fetchone()
+    nuevaSeccion = chr(ord(ultimaSeccion[0])+1) #chr convert to ASCII ord convert to number
+   
+    cursor.execute("SELECT COUNT(*) FROM espacio WHERE seccion=?", ultimaSeccion)
+    conn.commit()#Realiza cambios
+    numeroColumnas = int(cursor.fetchone()[0])
+    conn.close()
+    
+    for i in range(numeroColumnas):
+        insertEspacio(f"{nuevaSeccion}{i}")
+    
+    
+
+    
 
 def updateDiscapacitado(espacio):
     conn = sql.connect("myparking.db")
