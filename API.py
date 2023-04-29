@@ -174,11 +174,11 @@ class InsertAdmin(Resource):
         if(selectCountAdmin() >= 5):
                 return {"status": 201,
                         "mensaje": "Limite de administradores alcanzado"},201
-        data = request.args
+        data = request.get_json()
         if data:
             # Verificar si el RFC existe
             ### TODO: Utilizar un metodo distinto para consultar IDs
-            if( consultarAdmin(data.get("RFC")) ):
+            if( consultarAdmin(data["RFC"]) ):
                 return {"status":201, "mensaje":"RFC ya existe"},201
             # Creamos modelo
             newAdmin = Admin(RFC=data["RFC"], nombre=data["nombre"], CURP=data["CURP"])
@@ -188,6 +188,24 @@ class InsertAdmin(Resource):
             print(f"Administrador agregado: {data['RFC']}")
             return newAdmin.diccionario(), 201
         return {"status":400, "mensaje":"No se recibieron datos"},400
+class DeleteAdmin(Resource):
+    response = {"estatus": 404, "mensaje": "RFC no proporcionado"}
+    def post(self):
+        
+        espacioPOST = request.get_json()
+        rfc = espacioPOST["RFC"]
+        if(rfc):
+            espacio = consultarAdmin(rfc)
+            if(espacio): 
+                deleteAdmin(rfc)
+                self.response["mensaje"] = f'Administrador con RFC: {rfc} eliminado'
+                self.response["estatus"] = 200
+            else:
+                self.response["mensaje"] = "Admin no existe"
+                self.response["estatus"] = 404
+                return self.response,400
+        return self.response,200
+    
 
 
 api.add_resource(SelectEspacios, "/espacios")
@@ -196,7 +214,7 @@ api.add_resource(CambiarEstadoEspacio,"/espacios/estado")
 api.add_resource(DeleteEspacio,"/espacios/eliminar")
 api.add_resource(SelectAdmin, "/administradores")
 api.add_resource(InsertAdmin, "/administradores/add")
-
+api.add_resource(DeleteAdmin,"/administradores/eliminar")
 
 
 
