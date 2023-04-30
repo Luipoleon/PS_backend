@@ -195,6 +195,7 @@ class DeleteAdmin(Resource):
         espacioPOST = request.get_json()
         rfc = espacioPOST["RFC"]
         if(rfc):
+            # Comprobar si existe el administrador
             espacio = consultarAdmin(rfc)
             if(espacio): 
                 deleteAdmin(rfc)
