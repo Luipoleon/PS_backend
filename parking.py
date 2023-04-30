@@ -203,10 +203,10 @@ def deleteAdmin(RFC):
     conn.commit() #Realiza cambios
     conn.close()
 
-def updateAdmin(RFC,name,passw):
+def updateAdmin(RFC,name,passw,curp):
     conn = sql.connect("myparking.db")
     cursor = conn.cursor() #Conecta con una consulta
-    cursor.execute("UPDATE admin SET nombre = ?, contrasena = ? where RFC = ?",(name,passw,RFC))
+    cursor.execute("UPDATE admin SET nombre = ?, contrasena = ?, CURP = ? where RFC = ?",(name,passw,curp,RFC))
     conn.commit() #Realiza cambios
     conn.close()
 
