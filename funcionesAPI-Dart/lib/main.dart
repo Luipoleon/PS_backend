@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 void main() async {
-  http.Response response = await eliminarAdmin("A823424");
+  http.Response response = await seleccionarAdmin();
   print(json.decode(response.body));
 }
 
@@ -58,10 +58,16 @@ Future<http.Response> eliminarLugar(String id) {
 
 //CRUD Admin
 
+Future<http.Response> seleccionarAdmin() {
+  return http.get(
+    Uri.parse('http://localhost:5000/administradores')
+  );
+}
+
 Future<http.Response> crearAdmin(String rfc, String curp, String passwd, String nombre)
  {
   return http.post(
-    Uri.parse('http://localhost:5000/administradores/add')
+    Uri.parse('http://localhost:5000/administradores/crear')
     ,headers: <String, String>{
       'Content-Type': 'application/json; charset=UTF-8',
     },
@@ -79,6 +85,18 @@ Future<http.Response> eliminarAdmin(String rfc)
     body: jsonEncode(<String, String>{'RFC': rfc}),
   );
 }
+
+Future<http.Response> actualizarAdmin(String rfc, String new_curp, String new_passwd, String new_nombre)
+ {
+  return http.post(
+    Uri.parse('http://localhost:5000/administradores/actualizar')
+    ,headers: <String, String>{
+      'Content-Type': 'application/json; charset=UTF-8',
+    },
+    body: jsonEncode(<String, String>{'RFC': rfc,'CURP':new_curp,'passwd':new_passwd,'nombre':new_nombre}),
+  );
+}
+
 
 
 
