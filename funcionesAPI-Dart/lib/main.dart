@@ -58,10 +58,22 @@ Future<http.Response> eliminarLugar(String id) {
 
 //CRUD Admin
 
+Future<http.Response> consultarAdministradores() {
+  return http.get(
+    Uri.parse('http://localhost:5000/administradores')
+  );
+}
+
+Future<http.Response> consultarAdmin(String rfc) {
+  return http.get(
+    Uri.parse('http://localhost:5000/espacios?RFC=$rfc')
+  );
+}
+
 Future<http.Response> crearAdmin(String rfc, String curp, String passwd, String nombre)
  {
   return http.post(
-    Uri.parse('http://localhost:5000/administradores/add')
+    Uri.parse('http://localhost:5000/administradores/crear')
     ,headers: <String, String>{
       'Content-Type': 'application/json; charset=UTF-8',
     },
@@ -80,6 +92,15 @@ Future<http.Response> eliminarAdmin(String rfc)
   );
 }
 
-
+Future<http.Response> actualizarAdmin(String rfc, String new_curp, String new_passwd, String new_nombre)
+ {
+  return http.post(
+    Uri.parse('http://localhost:5000/administradores/actualizar')
+    ,headers: <String, String>{
+      'Content-Type': 'application/json; charset=UTF-8',
+    },
+    body: jsonEncode(<String, String>{'RFC': rfc,'CURP':new_curp,'passwd':new_passwd,'nombre':new_nombre}),
+  );
+}
 
 

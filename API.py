@@ -134,6 +134,11 @@ class Admin():
         self.nombre = nombre
         self.RFC = RFC
         self.CURP = CURP
+
+    @classmethod
+    def from_dict(cls, datos: dict):
+        return cls( datos["nombre"], datos["RFC"], datos["CURP"] )
+    
     #Convertir lugar en diccionario de python y asignarle nombres a los campos
     def diccionario(self):
         return {"nombre": self.nombre, "RFC": self.RFC,
@@ -168,26 +173,28 @@ class SelectAdmin(Resource):
                         "mensaje": "No hay administradores registrados"}, 404
         
 class InsertAdmin(Resource):
-    #response = {"status": 400, "mensaje": "Adminstrador no creado"}
     def post(self):
         # Salimos si se supero el limite de administradores
         if(selectCountAdmin() >= 5):
-                return {"status": 201,
-                        "mensaje": "Limite de administradores alcanzado"},201
+                return {"estatus": 400,
+                        "mensaje": "Limite de administradores alcanzado"}, 401
         data = request.get_json()
         if data:
+            # Extraer diccionario del json
+            data = data[0]
             # Verificar si el RFC existe
             ### TODO: Utilizar un metodo distinto para consultar IDs
             if( consultarAdmin(data["RFC"]) ):
-                return {"status":201, "mensaje":"RFC ya existe"},201
-            # Creamos modelo
+                return {"estatus":400, "mensaje":"RFC ya existe"},400
+            
             newAdmin = Admin(RFC=data["RFC"], nombre=data["nombre"], CURP=data["CURP"])
-
             insertAdmin( data["RFC"], data["nombre"], data["passwd"], data["CURP"])
 
             print(f"Administrador agregado: {data['RFC']}")
             return newAdmin.diccionario(), 201
-        return {"status":400, "mensaje":"No se recibieron datos"},400
+        return {"estatus":200, "mensaje":"No se recibieron datos"},200
+    
+
 class DeleteAdmin(Resource):
     response = {"estatus": 404, "mensaje": "RFC no proporcionado"}
     def post(self):
@@ -207,15 +214,36 @@ class DeleteAdmin(Resource):
         return self.response,200
     
 
+class UpdateAdmin(Resource):
+    response = {"estatus": 200, "mensaje": "Sin cambios realizados"}
+    def post(self):
+        adminPOST = request.get_json()
+        if adminPOST:
+            selectedAdmin = consultarAdmin(adminPOST["RFC"])
+            if not selectedAdmin:
+                # Salimos si no existe el RFC
+                self.response["estatus"] = 404
+                self.response["mensaje"] = "RFC no encontrado"
+                return self.response
+            
+            # TODO: Considerar casos en los que el cliente no entrege todos los datos del admin
+            modedAdmin = Admin.from_dict(adminPOST)
+            updateAdmin( adminPOST["RFC"], adminPOST["nombre"], adminPOST["passwd"], adminPOST["CURP"] )
+            print(f"Admistrador modificado: {adminPOST['RFC']}")
+            self.response["mensaje"] = "Modificado"
+        return self.response
 
+# CRUD Estacionamiento
 api.add_resource(SelectEspacios, "/espacios")
 api.add_resource(InsertEspacio, "/espacios/crear")
 api.add_resource(CambiarEstadoEspacio,"/espacios/estado")
 api.add_resource(DeleteEspacio,"/espacios/eliminar")
-api.add_resource(SelectAdmin, "/administradores")
-api.add_resource(InsertAdmin, "/administradores/add")
-api.add_resource(DeleteAdmin,"/administradores/eliminar")
 
+# CRUD Administrador
+api.add_resource(SelectAdmin, "/administradores")
+api.add_resource(InsertAdmin, "/administradores/crear")
+api.add_resource(DeleteAdmin,"/administradores/eliminar")
+api.add_resource(UpdateAdmin, "/administradores/actualizar")
 
 
 
