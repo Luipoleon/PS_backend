@@ -152,13 +152,12 @@ class SelectAdmin(Resource):
             rfc: str = request.args.get('RFC')
             datos = consultarAdmin(rfc)
             if datos:
-                print(datos)
                 # Extraer tupla de la lista
                 datos = datos[0]
                 administrador = Admin(RFC=datos[0], nombre=datos[1], CURP=datos[2])
                 return administrador.diccionario()
             else:
-                return {"status": 400, "mensaje": "No encontrado"}, 400
+                return {"status": 404, "mensaje": "No encontrado"}, 404
         else:
             # Obtener todos los administradores
             datos = selectAllAdmin()
@@ -180,8 +179,6 @@ class InsertAdmin(Resource):
                         "mensaje": "Limite de administradores alcanzado"}, 401
         data = request.get_json()
         if data:
-            # Extraer diccionario del json
-            data = data[0]
             # Verificar si el RFC existe
             ### TODO: Utilizar un metodo distinto para consultar IDs
             if( consultarAdmin(data["RFC"]) ):
@@ -216,23 +213,27 @@ class DeleteAdmin(Resource):
     
 
 class UpdateAdmin(Resource):
-    response = {"estatus": 200, "mensaje": "Sin cambios realizados"}
+    response: dict
     def post(self):
+        codigo: int
+        mensaje: str
         adminPOST = request.get_json()
-        if adminPOST:
-            selectedAdmin = consultarAdmin(adminPOST["RFC"])
+        try:
+            selectedAdmin = consultarAdmin( adminPOST["RFC"] )
             if not selectedAdmin:
-                # Salimos si no existe el RFC
-                self.response["estatus"] = 404
-                self.response["mensaje"] = "RFC no encontrado"
-                return self.response
-            
-            # TODO: Considerar casos en los que el cliente no entrege todos los datos del admin
-            modedAdmin = Admin.from_dict(adminPOST)
-            updateAdmin( adminPOST["RFC"], adminPOST["nombre"], adminPOST["passwd"], adminPOST["CURP"] )
-            print(f"Admistrador modificado: {adminPOST['RFC']}")
-            self.response["mensaje"] = "Modificado"
-        return self.response
+                codigo = 404
+                mensaje = "RFC no encontrado"
+            else:
+                updateAdmin( adminPOST["RFC"], adminPOST["nombre"], 
+                             adminPOST["passwd"], adminPOST["CURP"] ) 
+                codigo = 200
+                mensaje = f"Administrador con RFC: {adminPOST['RFC']} modificado"
+        except KeyError:
+            codigo = 400
+            mensaje = "Datos incompletos o formato incorrecto"
+        finally:
+            self.response = {"estatus":codigo, "mensaje":mensaje}
+            return self.response, codigo
 
 # CRUD Estacionamiento
 api.add_resource(SelectEspacios, "/espacios")
