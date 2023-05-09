@@ -20,7 +20,7 @@ Future<http.Response> seleccionarLugares() {
   );
 }
 
-Future<http.Response> crearLugar(String id) {
+Future<http.Response> crearLugar(String id, String direccion, String tipo, int x, int y) {
   return http.post(
     Uri.parse('http://localhost:5000/espacios/crear'),
     headers: <String, String>{
@@ -28,6 +28,10 @@ Future<http.Response> crearLugar(String id) {
     },
     body: jsonEncode(<String, String>{
       'ID': id,
+      'direccion': direccion,
+      'tipo': tipo,
+      'x': x,
+      'y': y,
     }),
   );
 }

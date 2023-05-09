@@ -16,15 +16,21 @@ CORS(app)
 #Lugares de estacionamiento
 
 class Lugar():
-    def __init__(self,numCajon,seccion,estado,fecha_hora):
+    def __init__(self,numCajon,seccion,estado,fecha_hora,direccion,tipo,discapacitado,x_pos,y_pos):
         self.numCajon = numCajon
         self.seccion = seccion
         self.estado = estado
         self.fecha_hora = fecha_hora
+        self.direccion = direccion
+        self.tipo = tipo
+        self.discapacitado = discapacitado
+        self.x = x_pos
+        self.y = y_pos
     #Convertir lugar en diccionario de python y asignarle nombres a los campos
     def diccionario(self):
-        return {"numCajon": self.numCajon, "seccion":self.seccion,"estado": self.estado,
-                            "fecha_hora": self.fecha_hora}
+        return {"no_cajon": self.numCajon, "seccion":self.seccion,"estado": self.estado,
+                "fecha_hora": self.fecha_hora, "direccion":self.direccion, "tipo":self.tipo,
+                "discapacitado":self.discapacitado, "x":self.x, "y": self.y }
        
 #CRUD lugares
 
@@ -37,12 +43,17 @@ class InsertEspacio(Resource):
         if(id and len(id)>=2):
             espacio = selectEspacio(id)
             if(not espacio):
-                insertEspacio(id)
+                direccion = espacioPOST["direccion"]
+                tipo = espacioPOST["tipo"]
+                cord_x = espacioPOST["x"]
+                cord_y = espacioPOST["y"]
+                insertEspacio(id,direccion,tipo,cord_x,cord_y)
                 self.response["estatus"] = 201
                 self.response["mensaje"] = "Espacio creado exitosamente"
                 espacioNuevo = selectEspacio(id)
                 lugar = Lugar(espacioNuevo[0][0],espacioNuevo[0][1],espacioNuevo[0][2],
-                              espacioNuevo[0][3])
+                              espacioNuevo[0][3],espacioNuevo[0][4],espacioNuevo[0][5],
+                              espacioNuevo[0][6],espacioNuevo[0][7],espacioNuevo[0][8])
                 response = lugar.diccionario() 
                 return response, 201
             else:
@@ -72,7 +83,8 @@ class CambiarEstadoEspacio(Resource):
                 ocupar_desocupar(id,estado)
                 
                 lugar = Lugar(espacio[0][0],espacio[0][1],espacio[0][2],
-                              espacio[0][3])
+                              espacio[0][3],espacio[0][4],espacio[0][5],
+                              espacio[0][6],espacio[0][7],espacio[0][8])
                 response = lugar.diccionario() 
                 response["estado"] = estado
                 return response
@@ -88,7 +100,9 @@ class SelectEspacios(Resource):
         if id:
             espacio=selectEspacio(id)
             if espacio:
-                lugar = Lugar(espacio[0][0],espacio[0][1],espacio[0][2],espacio[0][3])
+                lugar = Lugar(espacio[0][0],espacio[0][1],espacio[0][2],
+                              espacio[0][3],espacio[0][4],espacio[0][5],
+                              espacio[0][6],espacio[0][7],espacio[0][8])
                 response = lugar.diccionario() 
                 return response
             else:
@@ -99,7 +113,9 @@ class SelectEspacios(Resource):
         if espacios:
             dict_list = []
             for i in range(len(espacios)):
-               lugar = Lugar(espacios[i][0],espacios[i][1],espacios[i][2],espacios[i][3])
+               lugar = Lugar(espacios[i][0],espacios[i][1],espacios[i][2],
+                             espacios[i][3],espacios[i][4],espacios[i][5],
+                             espacios[i][6],espacios[i][7],espacios[i][8])
                dict = lugar.diccionario() 
                dict_list.append(dict)
             return dict_list
