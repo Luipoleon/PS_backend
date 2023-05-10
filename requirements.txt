@@ -1,0 +1,10 @@
+serial
+cryptocode
+opencv-python
+qrcode
+pytesseract
+fpdf
+pillow
+flask
+flask-restful
+flask-cors
