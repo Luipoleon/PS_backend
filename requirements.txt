@@ -8,3 +8,4 @@ pillow
 flask
 flask-restful
 flask-cors
+flask_jwt_extended

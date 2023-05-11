@@ -44,7 +44,17 @@ def createTableEspacio():
     conn.close()
     
 
-    
+def createTableRevokedTokens():
+    conn = sql.connect("myparking.db")
+    cursor = conn.cursor() #Conecta con una consulta
+    cursor.execute("""CREATE TABLE revockedTokens(
+                      id INTEGER PRIMARY KEY AUTOINCREMENT,
+                      jti TEXT UNIQUE,
+                      revoked_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                      );
+    """)
+    conn.commit() #Realiza cambios
+    conn.close()
 
 def createTableAdmin():
     conn = sql.connect("myparking.db")
@@ -193,7 +203,7 @@ def consultarEspacio(espacio):
 def LoginAdmin(user,passw):
     conn = sql.connect("myparking.db")
     cursor = conn.cursor() #Conecta con una consulta
-    cursor.execute("SELECT nombre,contrasena FROM admin where nombre = '"+str(user)+"' and contrasena = '"+str(passw)+"'" )
+    cursor.execute("SELECT RFC FROM admin where nombre = '"+str(user)+"' and contrasena = '"+str(passw)+"'" )
     #Obtiene el admin dado en Login
     datos = cursor.fetchall() #Regresa los datos de la consulta (Los lee y los regresa)
     conn.commit() #Realiza cambios
