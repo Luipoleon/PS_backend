@@ -44,7 +44,7 @@ class InsertEspacio(Resource):
 
     def post(self):
         if "sessionID" not in session:
-            return {"message":"No autorizado"},401
+            return {"mensaje":"No autorizado"},401
 
         espacioPOST = request.get_json()
         id = espacioPOST["ID"]
@@ -78,7 +78,7 @@ class CambiarEstadoEspacio(Resource):
     response = {"estatus": 400, "mensaje": "Estado no cambiado"}
     def post(self):
         if "sessionID" not in session:
-            return {"message":"No autorizado"},401
+            return {"mensaje":"No autorizado"},401
 
         espacioPOST = request.get_json()
         id = espacioPOST["ID"]
@@ -107,7 +107,7 @@ class SelectEspacios(Resource):
 
     def get(self):
         if "sessionID" not in session:
-            return {"message":"No autorizado"},401
+            return {"mensaje":"No autorizado"},401
 
         id=request.args.get("id")
         #Seleccionar un espacio si se manda el valor de id url?id = ID de estacionamiento
@@ -142,7 +142,7 @@ class DeleteEspacio(Resource):
     response = {"estatus": 404, "mensaje": "Estacionamiento no existe"}
     def post(self):
         if "sessionID" not in session:
-            return {"message":"No autorizado"},401
+            return {"mensaje":"No autorizado"},401
         
         espacioPOST = request.get_json()
         id = espacioPOST["ID"]
@@ -181,7 +181,7 @@ class SelectAdmin(Resource):
     #response = {"status": 404, "msj": "Administradores no disponibles"}
     def get(self):
         if "sessionID" not in session:
-            return {"message":"No autorizado"},401
+            return {"mensaje":"No autorizado"},401
         
         # Checar si recibimos un parametro "RFC"
         if 'RFC' in request.args:
@@ -210,7 +210,7 @@ class SelectAdmin(Resource):
 class InsertAdmin(Resource):
     def post(self):
         if "sessionID" not in session:
-            return {"message":"No autorizado"},401
+            return {"mensaje":"No autorizado"},401
         
         # Salimos si se supero el limite de administradores
         if(selectCountAdmin() >= 5):
@@ -235,7 +235,7 @@ class DeleteAdmin(Resource):
     response = {"estatus": 404, "mensaje": "RFC no proporcionado"}
     def post(self):
         if "sessionID" not in session:
-            return {"message":"No autorizado"},401
+            return {"mensaje":"No autorizado"},401
 
         espacioPOST = request.get_json()
         rfc = espacioPOST["RFC"]
@@ -257,7 +257,7 @@ class UpdateAdmin(Resource):
     response: dict
     def post(self):
         if "sessionID" not in session:
-            return {"message":"No autorizado"},401
+            return {"mensaje":"No autorizado"},401
         
         codigo: int
         mensaje: str
@@ -294,7 +294,7 @@ class Login(Resource):
         admin = LoginAdmin(data["nombre"], data["passwd"])
 
         if not admin:
-            return {"message":"Credenciales incorrectas"},401
+            return {"mensaje":"Credenciales incorrectas"},401
         
         # Generamos un token por medio del modulo secrets 
         sessionID = token_urlsafe(32) 
@@ -306,7 +306,7 @@ class Login(Resource):
 class logout(Resource):
     def post(self):
         if "sessionID" not in session:
-            return {"message":"No autorizado"},401
+            return {"mensaje":"No autorizado"},401
         session.pop('sessionID', None)
         session.pop('RFC', None)
         return {"mensaje": "Se ha cerrado sesión del usuario"},200
@@ -315,8 +315,8 @@ class logout(Resource):
 class Test(Resource):
     def get(self):
         if "sessionID" in session:
-            return {"message":"Estas autorizado!"},200
-        return {"message":"No autorizado"},401
+            return {"mensaje":"Estas autorizado!"},200
+        return {"mensaje":"No autorizado"},401
 
 
 # CRUD Estacionamiento
