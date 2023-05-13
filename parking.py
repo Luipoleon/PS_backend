@@ -30,9 +30,8 @@ def createTableEspacio():
     cursor = conn.cursor() #Conecta con una consulta
     cursor.execute("""CREATE TABLE espacio (
                         no_cajon INT(10) PRIMARY KEY,
-                        seccion VARCHAR(30),
                         estado BOOLEAN DEFAULT FALSE,
-                        fecha_hora TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        fecha_hora TIMESTAMP DEFAULT NULL,
                         direccion VARCHAR(8),
                         tipo VARCHAR(10),
                         discapacitado BOOLEAN DEFAULT FALSE,
@@ -77,8 +76,8 @@ def createTableAdmin():
 def insertEspacio(next_espacio: str, direc: str, tipo: str, cord_x:int, cord_y:int):
     conn = sql.connect("myparking.db")
     cursor = conn.cursor() #Conecta con una consulta
-    cursor.execute("INSERT INTO espacio(no_cajon,seccion,direccion,tipo,cord_x,cord_y) VALUES (?,?,?,?,?,?)",
-                   (next_espacio,next_espacio[0], direc, tipo, cord_x, cord_y))
+    cursor.execute("INSERT INTO espacio(no_cajon,direccion,tipo,cord_x,cord_y) VALUES (?,?,?,?,?)",
+                   (next_espacio, direc, tipo, cord_x, cord_y))
     conn.commit() #Realiza cambios
     conn.close()
 
@@ -163,10 +162,13 @@ def espaciosSensor():
     
     
 
-def ocupar_desocupar(espacio,estado):
+def ocupar_desocupar(espacio: str, estado: bool, fecha_hora: str):
     conn = sql.connect("myparking.db")
     cursor = conn.cursor() #Conecta con una consulta
-    cursor.execute("UPDATE espacio SET estado = ? where no_cajon = ?",(estado,espacio))
+    if estado:
+        cursor.execute("UPDATE espacio SET estado = ?, fecha_hora = ? where no_cajon = ?",(estado,fecha_hora,espacio))
+    else:
+        cursor.execute("UPDATE espacio SET estado = ?, fecha_hora = NULL where no_cajon = ?",(estado,espacio))
     #Actualiza el estado de un espacio
     conn.commit() #Realiza cambios
     conn.close()

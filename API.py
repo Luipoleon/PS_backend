@@ -4,6 +4,7 @@ from flask_restful import Api, Resource, request, reqparse
 from flask import Flask, session
 from flask_cors import CORS
 from secrets import token_urlsafe
+from datetime import datetime
 
 FLASK_DEBUG=1
 
@@ -21,9 +22,8 @@ CORS(app)
 #Lugares de estacionamiento
 
 class Lugar():
-    def __init__(self,numCajon,seccion,estado,fecha_hora,direccion,tipo,discapacitado,x_pos,y_pos):
+    def __init__(self,numCajon,estado,fecha_hora,direccion,tipo,discapacitado,x_pos,y_pos):
         self.numCajon = numCajon
-        self.seccion = seccion
         self.estado = estado
         self.fecha_hora = fecha_hora
         self.direccion = direccion
@@ -33,7 +33,7 @@ class Lugar():
         self.y = y_pos
     #Convertir lugar en diccionario de python y asignarle nombres a los campos
     def diccionario(self):
-        return {"no_cajon": self.numCajon, "seccion":self.seccion,"estado": self.estado,
+        return {"no_cajon": self.numCajon, "estado": self.estado,
                 "fecha_hora": self.fecha_hora, "direccion":self.direccion, "tipo":self.tipo,
                 "discapacitado":self.discapacitado, "x":self.x, "y": self.y }
        
@@ -44,11 +44,11 @@ class InsertEspacio(Resource):
 
     def post(self):
         if "sessionID" not in session:
-            return {"message":"No autorizado"},401
+            return {"mensaje":"No autorizado"},401
 
         espacioPOST = request.get_json()
-        id = espacioPOST["ID"]
-        if(id and len(id)>=2):
+        id = espacioPOST["no_cajon"]
+        if(id and len(id)==2):
             espacio = selectEspacio(id)
             if(not espacio):
                 direccion = espacioPOST["direccion"]
@@ -61,7 +61,7 @@ class InsertEspacio(Resource):
                 espacioNuevo = selectEspacio(id)
                 lugar = Lugar(espacioNuevo[0][0],espacioNuevo[0][1],espacioNuevo[0][2],
                               espacioNuevo[0][3],espacioNuevo[0][4],espacioNuevo[0][5],
-                              espacioNuevo[0][6],espacioNuevo[0][7],espacioNuevo[0][8])
+                              espacioNuevo[0][6],espacioNuevo[0][7])
                 response = lugar.diccionario() 
                 return response, 201
             else:
@@ -78,45 +78,74 @@ class CambiarEstadoEspacio(Resource):
     response = {"estatus": 400, "mensaje": "Estado no cambiado"}
     def post(self):
         if "sessionID" not in session:
-            return {"message":"No autorizado"},401
+            return {"mensaje":"No autorizado"},401
 
         espacioPOST = request.get_json()
-        id = espacioPOST["ID"]
+        id = espacioPOST["no_cajon"]
         estado=espacioPOST["estado"]
        
-        if (id and estado):
+        if (id):
             espacio = selectEspacio(id)
-            if(estado!="1" and estado!="0"):
+            if(estado!=1 and estado!=0):
                 self.response["mensaje"] = "Estado no válido"
             elif(not espacio):
                 self.response["mensaje"] = "El ID no existe"
+            elif(espacio[0][1]==estado):
+                self.response["mensaje"] = "El espacio ya tiene asignado dicho estado"
             else:
-                ocupar_desocupar(id,estado)
+                fecha_hora = datetime.today().strftime('%Y-%m-%d %H:%M:%S')
+                ocupar_desocupar(id, estado, fecha_hora)
                 
+                espacio = selectEspacio(id)
                 lugar = Lugar(espacio[0][0],espacio[0][1],espacio[0][2],
                               espacio[0][3],espacio[0][4],espacio[0][5],
-                              espacio[0][6],espacio[0][7],espacio[0][8])
+                              espacio[0][6],espacio[0][7])
                 response = lugar.diccionario() 
                 response["estado"] = estado
                 return response
                 
         return self.response, 400
       
+class CambiarDiscapacitadoEspacio(Resource):
+    response = {"estatus": 400, "mensaje": "Estado no cambiado"}
+    def post(self):
+        if "sessionID" not in session:
+            return {"message":"No autorizado"},401
+
+        espacioPOST = request.get_json()
+        id = espacioPOST["no_cajon"]
+        if (id):
+            espacio = selectEspacio(id)
+            if(not espacio):
+                self.response["mensaje"] = "El ID no existe"
+            else:
+                
+                updateDiscapacitado(id)
+                
+                espacio = selectEspacio(id)
+                lugar = Lugar(espacio[0][0],espacio[0][1],espacio[0][2],
+                              espacio[0][3],espacio[0][4],espacio[0][5],
+                              espacio[0][6],espacio[0][7])
+                response = lugar.diccionario() 
+                return response
+                
+        return self.response, 400
+
 class SelectEspacios(Resource):
     response = {"estatus": 404, "mensaje": "Estacionamientos no disponibles"}
 
     def get(self):
         if "sessionID" not in session:
-            return {"message":"No autorizado"},401
+            return {"mensaje":"No autorizado"},401
 
-        id=request.args.get("id")
+        id=request.args.get("no_cajon")
         #Seleccionar un espacio si se manda el valor de id url?id = ID de estacionamiento
         if id:
             espacio=selectEspacio(id)
             if espacio:
                 lugar = Lugar(espacio[0][0],espacio[0][1],espacio[0][2],
                               espacio[0][3],espacio[0][4],espacio[0][5],
-                              espacio[0][6],espacio[0][7],espacio[0][8])
+                              espacio[0][6],espacio[0][7])
                 response = lugar.diccionario() 
                 return response
             else:
@@ -129,7 +158,7 @@ class SelectEspacios(Resource):
             for i in range(len(espacios)):
                lugar = Lugar(espacios[i][0],espacios[i][1],espacios[i][2],
                              espacios[i][3],espacios[i][4],espacios[i][5],
-                             espacios[i][6],espacios[i][7],espacios[i][8])
+                             espacios[i][6],espacios[i][7])
                dict = lugar.diccionario() 
                dict_list.append(dict)
             return dict_list
@@ -142,10 +171,10 @@ class DeleteEspacio(Resource):
     response = {"estatus": 404, "mensaje": "Estacionamiento no existe"}
     def post(self):
         if "sessionID" not in session:
-            return {"message":"No autorizado"},401
+            return {"mensaje":"No autorizado"},401
         
         espacioPOST = request.get_json()
-        id = espacioPOST["ID"]
+        id = espacioPOST["no_cajon"]
         if(id):
             espacio = selectEspacio(id)
             if(espacio): 
@@ -181,7 +210,7 @@ class SelectAdmin(Resource):
     #response = {"status": 404, "msj": "Administradores no disponibles"}
     def get(self):
         if "sessionID" not in session:
-            return {"message":"No autorizado"},401
+            return {"mensaje":"No autorizado"},401
         
         # Checar si recibimos un parametro "RFC"
         if 'RFC' in request.args:
@@ -210,7 +239,7 @@ class SelectAdmin(Resource):
 class InsertAdmin(Resource):
     def post(self):
         if "sessionID" not in session:
-            return {"message":"No autorizado"},401
+            return {"mensaje":"No autorizado"},401
         
         # Salimos si se supero el limite de administradores
         if(selectCountAdmin() >= 5):
@@ -235,7 +264,7 @@ class DeleteAdmin(Resource):
     response = {"estatus": 404, "mensaje": "RFC no proporcionado"}
     def post(self):
         if "sessionID" not in session:
-            return {"message":"No autorizado"},401
+            return {"mensaje":"No autorizado"},401
 
         espacioPOST = request.get_json()
         rfc = espacioPOST["RFC"]
@@ -257,7 +286,7 @@ class UpdateAdmin(Resource):
     response: dict
     def post(self):
         if "sessionID" not in session:
-            return {"message":"No autorizado"},401
+            return {"mensaje":"No autorizado"},401
         
         codigo: int
         mensaje: str
@@ -294,7 +323,7 @@ class Login(Resource):
         admin = LoginAdmin(data["nombre"], data["passwd"])
 
         if not admin:
-            return {"message":"Credenciales incorrectas"},401
+            return {"mensaje":"Credenciales incorrectas"},401
         
         # Generamos un token por medio del modulo secrets 
         sessionID = token_urlsafe(32) 
@@ -306,7 +335,7 @@ class Login(Resource):
 class logout(Resource):
     def post(self):
         if "sessionID" not in session:
-            return {"message":"No autorizado"},401
+            return {"mensaje":"No autorizado"},401
         session.pop('sessionID', None)
         session.pop('RFC', None)
         return {"mensaje": "Se ha cerrado sesión del usuario"},200
@@ -315,14 +344,15 @@ class logout(Resource):
 class Test(Resource):
     def get(self):
         if "sessionID" in session:
-            return {"message":"Estas autorizado!"},200
-        return {"message":"No autorizado"},401
+            return {"mensaje":"Estas autorizado!"},200
+        return {"mensaje":"No autorizado"},401
 
 
 # CRUD Estacionamiento
 api.add_resource(SelectEspacios, "/espacios")
 api.add_resource(InsertEspacio, "/espacios/crear")
 api.add_resource(CambiarEstadoEspacio,"/espacios/estado")
+api.add_resource(CambiarDiscapacitadoEspacio,"/espacios/discapacitado")
 api.add_resource(DeleteEspacio,"/espacios/eliminar")
 
 # CRUD Administrador
