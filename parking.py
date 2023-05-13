@@ -82,6 +82,7 @@ def insertEspacio(next_espacio: str, direc: str, tipo: str, cord_x:int, cord_y:i
     conn.commit() #Realiza cambios
     conn.close()
 
+
 # TODO: Pendiente
 def insertFilaDEspacio():
     conn = sql.connect("myparking.db")
@@ -205,7 +206,7 @@ def LoginAdmin(user,passw):
     cursor = conn.cursor() #Conecta con una consulta
     cursor.execute("SELECT RFC FROM admin where nombre = '"+str(user)+"' and contrasena = '"+str(passw)+"'" )
     #Obtiene el admin dado en Login
-    datos = cursor.fetchall() #Regresa los datos de la consulta (Los lee y los regresa)
+    datos = cursor.fetchone() #Regresa los datos de la consulta (Los lee y los regresa)
     conn.commit() #Realiza cambios
     conn.close()
     return datos  

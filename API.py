@@ -1,18 +1,20 @@
 
 from parking import *
 from flask_restful import Api, Resource, request, reqparse
-from flask import Flask
+from flask import Flask, session
 from flask_cors import CORS
-from flask_jwt_extended import JWTManager, jwt_required, create_access_token, create_refresh_token
+from secrets import token_urlsafe
 
 FLASK_DEBUG=1
 
+#session_parser = reqparse.RequestParser()
+#session_parser.add_argument('token', help="Requerido", required=True)
 
 app = Flask(__name__)
 app.config['PROPAGATE_EXCEPTIONS'] = True # Requerido para no recibir codigo 500 por usar flask_restful
 api = Api(app)
-app.config['JWT_SECRET_KEY'] = '\xb3\x04e\xcc\xcb>\x90\xd5\x14\xf6\x15\xf4\xafj\xbd4' # os.urandom(16)
-jwt = JWTManager(app)
+app.config['SECRET_KEY'] = '\xd9M\xe6\x05\xa1-\xe6\x18\x86q\x89\x86t\x16\x91>\x8c\xef\x97(\x1e\xd0an'
+app.config["SESSION_PERMANENT"] = False
 CORS(app)
 
 
@@ -41,6 +43,9 @@ class InsertEspacio(Resource):
     response = {"estatus": 400, "mensaje": "Espacio no creado"}
 
     def post(self):
+        if "sessionID" not in session:
+            return {"message":"No autorizado"},401
+
         espacioPOST = request.get_json()
         id = espacioPOST["ID"]
         if(id and len(id)>=2):
@@ -72,6 +77,9 @@ class InsertEspacio(Resource):
 class CambiarEstadoEspacio(Resource):
     response = {"estatus": 400, "mensaje": "Estado no cambiado"}
     def post(self):
+        if "sessionID" not in session:
+            return {"message":"No autorizado"},401
+
         espacioPOST = request.get_json()
         id = espacioPOST["ID"]
         estado=espacioPOST["estado"]
@@ -98,6 +106,9 @@ class SelectEspacios(Resource):
     response = {"estatus": 404, "mensaje": "Estacionamientos no disponibles"}
 
     def get(self):
+        if "sessionID" not in session:
+            return {"message":"No autorizado"},401
+
         id=request.args.get("id")
         #Seleccionar un espacio si se manda el valor de id url?id = ID de estacionamiento
         if id:
@@ -130,6 +141,8 @@ class DeleteEspacio(Resource):
     
     response = {"estatus": 404, "mensaje": "Estacionamiento no existe"}
     def post(self):
+        if "sessionID" not in session:
+            return {"message":"No autorizado"},401
         
         espacioPOST = request.get_json()
         id = espacioPOST["ID"]
@@ -163,12 +176,16 @@ class Admin():
         return {"nombre": self.nombre, "RFC": self.RFC,
                 "CURP": self.CURP}
 
+# TODO: Rewrite this to support reqparser
 class SelectAdmin(Resource):
     #response = {"status": 404, "msj": "Administradores no disponibles"}
     def get(self):
+        if "sessionID" not in session:
+            return {"message":"No autorizado"},401
+        
         # Checar si recibimos un parametro "RFC"
         if 'RFC' in request.args:
-            rfc: str = request.args.get('RFC')
+            rfc: str = datos.args.get('RFC')
             datos = consultarAdmin(rfc)
             if datos:
                 # Extraer tupla de la lista
@@ -192,6 +209,9 @@ class SelectAdmin(Resource):
         
 class InsertAdmin(Resource):
     def post(self):
+        if "sessionID" not in session:
+            return {"message":"No autorizado"},401
+        
         # Salimos si se supero el limite de administradores
         if(selectCountAdmin() >= 5):
                 return {"estatus": 400,
@@ -214,7 +234,9 @@ class InsertAdmin(Resource):
 class DeleteAdmin(Resource):
     response = {"estatus": 404, "mensaje": "RFC no proporcionado"}
     def post(self):
-        
+        if "sessionID" not in session:
+            return {"message":"No autorizado"},401
+
         espacioPOST = request.get_json()
         rfc = espacioPOST["RFC"]
         if(rfc):
@@ -234,6 +256,9 @@ class DeleteAdmin(Resource):
 class UpdateAdmin(Resource):
     response: dict
     def post(self):
+        if "sessionID" not in session:
+            return {"message":"No autorizado"},401
+        
         codigo: int
         mensaje: str
         adminPOST = request.get_json()
@@ -258,27 +283,41 @@ class UpdateAdmin(Resource):
 
 class Login(Resource):
     def post(self):
-        parser = reqparse.RequestParser()
-        parser.add_argument('nombre', help='Requerido', required=True)
-        parser.add_argument('passwd', help='Requerido', required=True)
+        if 'sessionID' in session:
+            return {"mensaje":"Ya hay una sesión activa"},403
+        
+        login_parser = reqparse.RequestParser()
+        login_parser.add_argument('nombre', help='Requerido', required=True)
+        login_parser.add_argument('passwd', help='Requerido', required=True)
 
-        data = parser.parse_args()
+        data = login_parser.parse_args()
         admin = LoginAdmin(data["nombre"], data["passwd"])
+
         if not admin:
-            return {"message":"Credenciales incorrectas"}
-        access_token = create_access_token(identity=admin[0])
-        refresh_token = create_refresh_token(identity=admin[0])
-        return {
-            "access_token":access_token,
-            "refresh_token":refresh_token
-        }
+            return {"message":"Credenciales incorrectas"},401
+        
+        # Generamos un token por medio del modulo secrets 
+        sessionID = token_urlsafe(32) 
+        session['sessionID'] = sessionID
+        session['RFC'] = admin[0]
+
+        return {"sessionID":sessionID},200
+    
+class logout(Resource):
+    def post(self):
+        if "sessionID" not in session:
+            return {"message":"No autorizado"},401
+        session.pop('sessionID', None)
+        session.pop('RFC', None)
+        return {"mensaje": "Se ha cerrado sesión del usuario"},200
+
 
 class Test(Resource):
-    @jwt_required()
     def get(self):
-        return {"message":"Estas autorizado!"},200
-            
-        
+        if "sessionID" in session:
+            return {"message":"Estas autorizado!"},200
+        return {"message":"No autorizado"},401
+
 
 # CRUD Estacionamiento
 api.add_resource(SelectEspacios, "/espacios")
@@ -294,8 +333,7 @@ api.add_resource(UpdateAdmin, "/administradores/actualizar")
 
 # Login & logout
 api.add_resource(Login, "/login")
-#api.add_resource(logoutAdmin, "/logout")
-
+api.add_resource(logout, "/logout")
 api.add_resource(Test, "/Test")
 
 if __name__ == "__main__":
