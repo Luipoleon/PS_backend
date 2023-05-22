@@ -1,4 +1,4 @@
-serial
+pyserial
 cryptocode
 opencv-python
 qrcode
@@ -8,4 +8,3 @@ pillow
 flask
 flask-restful
 flask-cors
-flask_jwt_extended

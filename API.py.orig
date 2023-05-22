@@ -1,19 +1,15 @@
+
 from parking import *
 from flask_restful import Api, Resource, request, reqparse
 from flask import Flask, session
 from flask_cors import CORS
 from secrets import token_urlsafe
 from datetime import datetime
-from sensores import initSensores, validarEspacioOcupado
-from multiprocessing import Process, Value
-from resources.apartar_lugar import ApartarLugar, ApartarLugarDiscapacitado
 
 FLASK_DEBUG=1
 
-sensores_canales: list = []
-lugares: list = []
-
-sensores_disponibles: bool
+#session_parser = reqparse.RequestParser()
+#session_parser.add_argument('token', help="Requerido", required=True)
 
 app = Flask(__name__)
 app.config['PROPAGATE_EXCEPTIONS'] = True # Requerido para no recibir codigo 500 por usar flask_restful
@@ -118,7 +114,7 @@ class UpdateEspacio(Resource):
         finally:
             self.response = {"estatus":codigo, "mensaje":mensaje}
             return self.response, codigo
-        
+
 class EliminarTodoEspacios(Resource):
     response: dict
     def post(self):
@@ -218,6 +214,7 @@ class SelectEspacios(Resource):
                 return self.response,400
         #Seleccionar todos los espacios 
         espacios=selectEspacios()  
+        print(espacios) 
         if espacios:
             dict_list = []
             for i in range(len(espacios)):
@@ -229,8 +226,8 @@ class SelectEspacios(Resource):
             return dict_list
         else:
             return [], 200
-
-
+        
+        
 class DeleteEspacio(Resource):
     
     response = {"estatus": 404, "mensaje": "Estacionamiento no existe"}
@@ -461,41 +458,6 @@ class Test(Resource):
             return {"mensaje":"Estas autorizado!"},200
         return {"mensaje":"No autorizado"},401
 
-class TestSensores(Resource):
-    def get(self):
-        if sensores_disponibles:
-            return {"Sensor1":sensores_canales[0].value,
-                    "Sensor2":sensores_canales[1].value,
-                    "Sensor3":sensores_canales[2].value,}
-        else:
-            return {"mensaje":"No disponible"},503
-
-
-class DesocuparLugar(Resource):
-    def get(self, lugar: str):
-        mensaje: str = ""
-        codigo: int = 200
-        espacio = consultarEspacio(lugar)
-        if espacio[0][0] == 0:
-            #return {"mensaje":f"Ticket invalido"},400
-            mensaje = "Ticket invalido"
-            codigo = 400
-        
-        elif sensores_disponibles and (lugar in lugares): # Revisar si es un lugar con sensor
-            sensor = lugares.index(lugar)
-            if sensores_canales[sensor] == 1:
-                #return {"mensaje":f"El lugar {lugar} sigue estado ocupado."}
-                mensaje = f"El espacio {lugar} sigue estado ocupado."
-            else:
-                ocupar_desocupar(lugar,0,None)
-                #return {"mensaje":f"Espacio: {lugar} desocupado."}
-                mensaje = f"El espacio {lugar} ha sido desocupado."
-        else:
-            ocupar_desocupar(lugar,0,None)
-            #return {"mensaje":f"Espacio: {lugar} desocupado."}
-            mensaje = f"El espacio {lugar} ha sido desocupado."
-
-        return {"codigo":codigo,"mensaje":mensaje}, codigo
 
 # CRUD Estacionamiento
 api.add_resource(SelectEspacios, "/espacios")
@@ -519,39 +481,5 @@ api.add_resource(logout, "/logout")
 api.add_resource(ValidateSession, "/validar_sesion")
 api.add_resource(Test, "/Test")
 
-# ui
-#api.add_resource(lectorQR, "/ui/qr") # No sirve jajajaj
-api.add_resource(ApartarLugar, "/ui/obtener_lugar")
-api.add_resource(ApartarLugarDiscapacitado, "/ui/obtener_lugar_discapacitado")
-api.add_resource(DesocuparLugar, "/ui/desocupar_lugar/<string:lugar>")
-
-# sensores
-api.add_resource(TestSensores, "/Test/sensores")
-
 if __name__ == "__main__":
-    try:
-        try: # Arduino
-            arduino = initSensores()
-            if arduino:
-                sensores_disponibles = True
-        except Exception as e:
-            print(f"[WARNING]:  No se pudo establecer conexíon con el arduino")
-            print(e)
-            sensores_disponibles = False
-
-        if sensores_disponibles:
-            espacios = espaciosSensor()
-            for _ in espacios:
-                sensores_canales.append(Value('i', 0))
-            lugares = espacios
-            sensores = Process(target=validarEspacioOcupado, args=(arduino, espacios, sensores_canales,))
-            sensores.start()
-        app.run()
-    except KeyboardInterrupt:
-        if sensores_canales:
-            sensores.terminate()
-            arduino.close()
-            exit()
-    
-        
-    #app.run()
+    app.run()

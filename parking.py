@@ -29,7 +29,8 @@ def createTableEspacio():
     conn = sql.connect("myparking.db")
     cursor = conn.cursor() #Conecta con una consulta
     cursor.execute("""CREATE TABLE espacio (
-                        no_cajon INT(10) PRIMARY KEY,
+                        id_espacio INTEGER PRIMARY KEY,
+                        no_cajon VARCHAR(5),
                         estado BOOLEAN DEFAULT FALSE,
                         fecha_hora TIMESTAMP DEFAULT NULL,
                         direccion VARCHAR(8),
@@ -101,7 +102,29 @@ def insertFilaDEspacio():
     
     
 
+
+
+
+def obtenerEspacio() -> list:
+    conn = sql.connect("myparking.db")
+    cursor = conn.cursor() #Conecta con una consulta
+    cursor.execute("SELECT MIN(no_cajon) FROM espacio WHERE estado=0 AND discapacitado=0 AND tipo='lugar'")
+    espacio = cursor.fetchone()
+    conn.close()
+    return espacio
     
+def obtenerEspacioDiscapacitado() -> list:
+    conn = sql.connect("myparking.db")
+    cursor = conn.cursor() #Conecta con una consulta
+    cursor.execute("SELECT MIN(no_cajon) FROM espacio WHERE estado=0 AND discapacitado=1 AND tipo='lugar'")
+    espacio = cursor.fetchone()
+    conn.close()
+    return espacio
+
+
+
+
+
 
 def updateDiscapacitado(espacio):
     conn = sql.connect("myparking.db")
@@ -142,23 +165,24 @@ def espacio_discapacitado():
     conn.close()
     updateDiscapacitado(disc1[0][0]) #Primer lugar mas cercano discapacitado 1
     updateDiscapacitado(disc2[0][0]) #Segundo lugar mas cercano discapaticado 2 
-"""
+
+    
 def espaciosSensor():
+    #Conexion con la BD
     conn = sql.connect("myparking.db")
     cursor = conn.cursor() #Conecta con una consulta
-    cursor.execute("SELECT MIN(ID) FROM espacio where ID > (select MIN(ID) FROM espacio where ID > (select MIN(ID) FROM espacio))")
-    #Selecciona al tercer espacio minimo 
+    cursor.execute("SELECT MIN(no_cajon) FROM espacio where no_cajon > (select MIN(no_cajon) FROM espacio where no_cajon > (select MIN(no_cajon) FROM espacio))")
+#Selecciona al tercer espacio minimo 
     disc3 = cursor.fetchall() #Regresa los datos de la consulta (Los lee y los regresa)
-    cursor.execute("SELECT MIN(ID) FROM espacio where ID > (select MIN(ID) FROM espacio)")
-    #Selecciona al segundo espacio minimo 
+    cursor.execute("SELECT MIN(no_cajon) FROM espacio where no_cajon > (select MIN(no_cajon) FROM espacio)")
+#Selecciona al segundo espacio minimo 
     disc2 = cursor.fetchall() #Regresa los datos de la consulta (Los lee y los regresa)
     conn.commit() #Realiza cambios
-    cursor.execute("SELECT MIN(ID) FROM espacio")
-    #Selecciona al espacio minimo 
+    cursor.execute("SELECT MIN(no_cajon) FROM espacio")
+#Selecciona el primer espacio minimo 
     disc1 = cursor.fetchall() 
     conn.close()
-    validarEspacioOcupado(disc1[0][0],disc2[0][0],disc3[0][0])
-"""   
+    return {disc1[0][0],disc2[0][0],disc3[0][0]} 
     
     
 
@@ -203,6 +227,59 @@ def consultarEspacio(espacio):
     conn.close()
     return datos    
 
+def validarEspacio(noCajon, noCajonAnterior = ""):
+    conn = sql.connect("myparking.db")
+    cursor = conn.cursor() #Conecta con una consulta
+    if noCajonAnterior:
+        cursor.execute("SELECT * FROM espacio where no_cajon = '"+str(noCajon)+"' AND no_cajon != '" + str(noCajonAnterior) + "'")
+    else:   
+        cursor.execute("SELECT * FROM espacio where no_cajon = '"+str(noCajon)+"'")
+    #Obtiene todos los espacios del parking
+    datos = cursor.fetchall() #Regresa los datos de la consulta (Los lee y los regresa)
+    conn.commit() #Realiza cambios
+    conn.close()
+    return datos 
+
+def consultarCajonXY(x, y):
+    conn = sql.connect("myparking.db")
+    cursor = conn.cursor() #Conecta con una consulta
+    cursor.execute("SELECT * FROM espacio WHERE cord_x = " + str(x) + " AND cord_y = " + str(y))
+    datos = cursor.fetchall() #Regresa los datos de la consulta (Los lee y los regresa)
+    conn.commit() #Realiza cambios
+    conn.close()
+    return datos
+
+def updateEspacio(no_cajon, estado, fecha_hora, direccion, tipo, discapacitado, x, y):
+    conn = sql.connect("myparking.db")
+    cursor = conn.cursor() #Conecta con una consulta
+    cursor.execute("SELECT * FROM espacio where cord_x = " + str(x) + " AND cord_y = " + str(y))
+    espacio = cursor.fetchall()
+    if espacio:
+        # El espacio ya existe, actualizamos
+        cursor.execute("UPDATE espacio SET " +
+                       "no_cajon = ?, " +
+                       "estado = ?, " +
+                       "fecha_hora = ?, " +
+                       "direccion = ?, " +
+                       "tipo = ?, " +
+                       "discapacitado = ? " +
+                       "WHERE cord_x = ? AND cord_y = ?", 
+                       (no_cajon, estado, fecha_hora, direccion, tipo, discapacitado, x, y)
+                    )
+    else:
+        # Si no ps lo agregamos
+        cursor.execute("INSERT INTO espacio(no_cajon,direccion,tipo,discapacitado,cord_x,cord_y) VALUES (?,?,?,?,?,?)",
+                   (no_cajon, direccion, tipo, discapacitado, x, y))
+    conn.commit() #Realiza cambios
+    conn.close()
+
+def eliminarTodoEspacios():
+    conn = sql.connect("myparking.db")
+    cursor = conn.cursor() #Conecta con una consulta
+    cursor.execute("DELETE FROM espacio")
+    conn.commit() #Realiza cambios
+    conn.close()
+
 def LoginAdmin(user,passw):
     conn = sql.connect("myparking.db")
     cursor = conn.cursor() #Conecta con una consulta
@@ -227,10 +304,18 @@ def deleteAdmin(RFC):
     conn.commit() #Realiza cambios
     conn.close()
 
-def updateAdmin(RFC,name,passw,curp):
+def updateAdmin(RFC,name,curp, nuevoRFC):
     conn = sql.connect("myparking.db")
     cursor = conn.cursor() #Conecta con una consulta
-    cursor.execute("UPDATE admin SET nombre = ?, contrasena = ?, CURP = ? where RFC = ?",(name,passw,curp,RFC))
+    cursor.execute("UPDATE admin SET nombre = ?, CURP = ?, RFC = ? where RFC = ?",
+                   (name, curp, nuevoRFC, RFC))
+    conn.commit() #Realiza cambios
+    conn.close()
+
+def updateAdminPassword(password, RFC):
+    conn = sql.connect("myparking.db")
+    cursor = conn.cursor() #Conecta con una consulta
+    cursor.execute("UPDATE admin SET contrasena = ? where RFC = ?", (password, RFC))
     conn.commit() #Realiza cambios
     conn.close()
 
@@ -244,10 +329,23 @@ def consultarAdmin(RFC):
     conn.close()
     return datos
 
+def validarNombre(nombre, nombreAnterior = ""):
+    conn = sql.connect("myparking.db")
+    cursor = conn.cursor() #Conecta con una consulta
+    if nombreAnterior:
+        cursor.execute("SELECT * FROM admin where nombre = '"+str(nombre)+"' AND nombre != '" + str(nombreAnterior) + "'")
+    else:   
+        cursor.execute("SELECT * FROM admin where nombre = '"+str(nombre)+"'")
+    #Obtiene todos los espacios del parking
+    datos = cursor.fetchall() #Regresa los datos de la consulta (Los lee y los regresa)
+    conn.commit() #Realiza cambios
+    conn.close()
+    return datos
+
 def selectAllAdmin():
     conn = sql.connect("myparking.db")
     cursor = conn.cursor() #Conecta con una consulta
-    cursor.execute("SELECT RFC,nombre,CURP FROM admin")
+    cursor.execute("SELECT RFC,nombre,CURP FROM admin WHERE nombre != 'admin'")
     #Obtiene todos los espacios del parking
     datos = cursor.fetchall() #Regresa los datos de la consulta (Los lee y los regresa)
     conn.commit() #Realiza cambios
