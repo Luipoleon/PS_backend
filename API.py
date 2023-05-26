@@ -1,45 +1,74 @@
-from parking import *
 from flask_restful import Api, Resource, request, reqparse
 from flask import Flask, session
 from flask_cors import CORS
 from secrets import token_urlsafe
 from datetime import datetime
-from sensores import initSensores, validarEspacioOcupado
-from multiprocessing import Process, Value
-from resources.apartar_lugar import ApartarLugar, ApartarLugarDiscapacitado
+from sensores import *
+from multiprocessing import Value
+from make_ticket import make_ticket
+from datetime import datetime
+import threading
+import serial
+from sys import argv
 
 FLASK_DEBUG=1
 
-sensores_canales: list = []
-lugares: list = []
-
+arduino: serial.Serial
+lugares_sensor: list
 sensores_disponibles: bool
+DATABASE: str
+FAKESENSORS: bool
+
+if 'fakesensors' in argv:
+    FAKESENSORS = True
+else:
+    FAKESENSORS = False
 
 app = Flask(__name__)
 app.config['PROPAGATE_EXCEPTIONS'] = True # Requerido para no recibir codigo 500 por usar flask_restful
 api = Api(app)
 app.config['SECRET_KEY'] = '\xd9M\xe6\x05\xa1-\xe6\x18\x86q\x89\x86t\x16\x91>\x8c\xef\x97(\x1e\xd0an'
-app.config["SESSION_PERMANENT"] = False
 CORS(app)
 
+if 'sqlite' in argv:
+    from parking import *
+    DATABASE = 'sqlite'
+else:
+    from parking_mysql import isMysqlRunning   
+    try:
+        if isMysqlRunning():     # Revisar si mysql esta disponible
+            DATABASE = 'mysql'
+            from parking_mysql import *
+    except: # Usar sqlite como fallback
+        DATABASE = 'sqlite'
+        from parking import *
 
 #Lugares de estacionamiento
 
 class Lugar():
-    def __init__(self,numCajon,estado,fecha_hora,direccion,tipo,discapacitado,x_pos,y_pos):
+    def __init__(self,numCajon,estado,fecha_hora,direccion,tipo,discapacitado,x_pos,y_pos,id_lugar,asignado):
         self.numCajon = numCajon
         self.estado = estado
-        self.fecha_hora = fecha_hora
+        if DATABASE == 'sqlite':
+            self.fecha_hora = fecha_hora
+        else:
+            if fecha_hora != None:
+                self.fecha_hora = fecha_hora.strftime('%Y-%m-%d %H:%M:%S')
+            else:
+                self.fecha_hora = None
         self.direccion = direccion
         self.tipo = tipo
         self.discapacitado = discapacitado
         self.x = x_pos
         self.y = y_pos
+        self.id_lugar = id_lugar
+        self.asignado = asignado
     #Convertir lugar en diccionario de python y asignarle nombres a los campos
     def diccionario(self):
         return {"no_cajon": self.numCajon, "estado": self.estado,
                 "fecha_hora": self.fecha_hora, "direccion":self.direccion, "tipo":self.tipo,
-                "discapacitado":self.discapacitado, "x":self.x, "y": self.y }
+                "discapacitado":self.discapacitado, "x":self.x, "y": self.y,
+                "asignado":self.asignado}
        
 #CRUD lugares
 
@@ -65,7 +94,8 @@ class InsertEspacio(Resource):
                 espacioNuevo = selectEspacio(id)
                 lugar = Lugar(espacioNuevo[0][0],espacioNuevo[0][1],espacioNuevo[0][2],
                               espacioNuevo[0][3],espacioNuevo[0][4],espacioNuevo[0][5],
-                              espacioNuevo[0][6],espacioNuevo[0][7])
+                              espacioNuevo[0][6],espacioNuevo[0][7],espacioNuevo[0][8],
+                              espacioNuevo[0][9])
                 response = lugar.diccionario() 
                 return response, 201
             else:
@@ -87,17 +117,18 @@ class UpdateEspacio(Resource):
         mensaje: str = "Error desconocido"
         data = request.get_json()
         try:
-            espacio = consultarCajonXY(data["x"], data["y"])
-            if espacio:
-                if validarEspacio(data["no_cajon"], espacio[0][0]):
-                    codigo: int = 500
-                    mensaje: str = "Este número de cajón ya existe"
-                    return {"mensaje":"Este número de cajón ya existe"},500
-            else:
-                if validarEspacio(data["no_cajon"]): 
-                    codigo: int = 500
-                    mensaje: str = "Este número de cajón ya existe"
-                    return {"mensaje":"Este número de cajón ya existe"},500
+            if len(data["no_cajon"]) > 0:
+                espacio = consultarCajonXY(data["x"], data["y"])
+                if espacio:
+                    if validarEspacio(data["no_cajon"], espacio[0][0]):
+                        codigo: int = 500
+                        mensaje: str = "Este número de cajón ya existe"
+                        return {"mensaje":"Este número de cajón ya existe"},500
+                else:
+                    if validarEspacio(data["no_cajon"]): 
+                        codigo: int = 500
+                        mensaje: str = "Este número de cajón ya existe"
+                        return {"mensaje":"Este número de cajón ya existe"},500
             
             updateEspacio(
                 data["no_cajon"], 
@@ -162,9 +193,11 @@ class CambiarEstadoEspacio(Resource):
                 ocupar_desocupar(id, estado, fecha_hora)
                 
                 espacio = selectEspacio(id)
+                print(espacio)
                 lugar = Lugar(espacio[0][0],espacio[0][1],espacio[0][2],
                               espacio[0][3],espacio[0][4],espacio[0][5],
-                              espacio[0][6],espacio[0][7])
+                              espacio[0][6],espacio[0][7],espacio[0][8],
+                              espacio[0][9])
                 response = lugar.diccionario() 
                 response["estado"] = estado
                 return response
@@ -210,7 +243,8 @@ class SelectEspacios(Resource):
             if espacio:
                 lugar = Lugar(espacio[0][0],espacio[0][1],espacio[0][2],
                               espacio[0][3],espacio[0][4],espacio[0][5],
-                              espacio[0][6],espacio[0][7])
+                              espacio[0][6],espacio[0][7],espacio[0][8],
+                              espacio[0][9])
                 response = lugar.diccionario() 
                 return response
             else:
@@ -223,14 +257,14 @@ class SelectEspacios(Resource):
             for i in range(len(espacios)):
                lugar = Lugar(espacios[i][0],espacios[i][1],espacios[i][2],
                              espacios[i][3],espacios[i][4],espacios[i][5],
-                             espacios[i][6],espacios[i][7])
+                             espacios[i][6],espacios[i][7],espacios[i][8],
+                             espacios[i][9])
                dict = lugar.diccionario() 
                dict_list.append(dict)
             return dict_list
         else:
             return [], 200
-
-
+            
 class DeleteEspacio(Resource):
     
     response = {"estatus": 404, "mensaje": "Estacionamiento no existe"}
@@ -251,9 +285,8 @@ class DeleteEspacio(Resource):
                 self.response["estatus"] = 404
                 return self.response,400
         return self.response,200
-                
-                
-#Aministrador 
+                             
+#Administrador 
 
 class Admin():
     def __init__(self,nombre,RFC,CURP):
@@ -270,7 +303,6 @@ class Admin():
         return {"nombre": self.nombre, "RFC": self.RFC,
                 "CURP": self.CURP}
 
-# TODO: Rewrite this to support reqparser
 class SelectAdmin(Resource):
     #response = {"status": 404, "msj": "Administradores no disponibles"}
     def get(self):
@@ -327,7 +359,6 @@ class InsertAdmin(Resource):
             return newAdmin.diccionario(), 201
         return {"estatus":200, "mensaje":"No se recibieron datos"},200
     
-
 class DeleteAdmin(Resource):
     response = {"estatus": 404, "mensaje": "RFC no proporcionado"}
     def post(self):
@@ -349,7 +380,6 @@ class DeleteAdmin(Resource):
                 return self.response,400
         return self.response,200
     
-
 class UpdateAdmin(Resource):
     response: dict
     def post(self):
@@ -439,7 +469,6 @@ class Login(Resource):
 
         return {"sessionID":sessionID},200
     
-    
 class ValidateSession(Resource):
     def post(self):
         if 'sessionID' in session:
@@ -454,48 +483,81 @@ class logout(Resource):
         session.pop('RFC', None)
         return {"mensaje": "Se ha cerrado sesión del usuario"},200
 
-
-class Test(Resource):
+class ApartarLugar(Resource):
     def get(self):
-        if "sessionID" in session:
-            return {"mensaje":"Estas autorizado!"},200
-        return {"mensaje":"No autorizado"},401
-
-class TestSensores(Resource):
-    def get(self):
-        if sensores_disponibles:
-            return {"Sensor1":sensores_canales[0].value,
-                    "Sensor2":sensores_canales[1].value,
-                    "Sensor3":sensores_canales[2].value,}
+        espacio = obtenerEspacio()
+        if espacio[0]:
+            make_ticket(espacio[0],"Normal")
+            if sensores_disponibles: # Revisar si el arduino esta conectado
+                if espacio[0] in lugares_sensor:
+                    setAsignar(espacio[0], 1)
+                else:
+                    fecha_hora = datetime.today().strftime('%Y-%m-%d %H:%M:%S')
+                    ocupar_desocupar(espacio[0],1,fecha_hora)
+                if not FAKESENSORS:
+                    arduino.write(str(100).encode())
+                print("[G]: Entrada con arduino")
+            else:
+                fecha_hora = datetime.today().strftime('%Y-%m-%d %H:%M:%S')
+                ocupar_desocupar(espacio[0],1,fecha_hora)
+                print("[G]: Entrada sin arduino")
+            return {"mensaje": f"Lugar: {espacio[0]} asignado"}
         else:
-            return {"mensaje":"No disponible"},503
-
+            return {"mensaje":"No hay espacios disponibles"}
+            
+class ApartarLugarDiscapacitado(Resource):
+    def get(self):
+        espacio = obtenerEspacioDiscapacitado()
+        print(espacio)
+        if espacio[0]:
+            make_ticket(espacio[0],"Discapacitado")
+            if sensores_disponibles: # Revisar si el arduino esta conectado
+                if espacio[0] in lugares_sensor:
+                    setAsignar(espacio[0], 1)
+                else:
+                    fecha_hora = datetime.today().strftime('%Y-%m-%d %H:%M:%S')
+                    ocupar_desocupar(espacio[0],1,fecha_hora)
+                if not FAKESENSORS:
+                    arduino.write(str(100).encode())
+                print("[G]: Entrada con arduino")
+            else:
+                fecha_hora = datetime.today().strftime('%Y-%m-%d %H:%M:%S')
+                ocupar_desocupar(espacio[0],1,fecha_hora)
+                print("[G]: Entrada sin arduino")
+            return {"mensaje": f"Lugar: {espacio[0]} asignado"}
+        else:
+            return {"mensaje":"No hay espacios disponibles"}
 
 class DesocuparLugar(Resource):
     def get(self, lugar: str):
-        mensaje: str = ""
-        codigo: int = 200
-        espacio = consultarEspacio(lugar)
-        if espacio[0][0] == 0:
-            #return {"mensaje":f"Ticket invalido"},400
-            mensaje = "Ticket invalido"
-            codigo = 400
-        
-        elif sensores_disponibles and (lugar in lugares): # Revisar si es un lugar con sensor
-            sensor = lugares.index(lugar)
-            if sensores_canales[sensor] == 1:
-                #return {"mensaje":f"El lugar {lugar} sigue estado ocupado."}
-                mensaje = f"El espacio {lugar} sigue estado ocupado."
+        espacio = consultarEspacioAsignado(lugar)
+        if sensores_disponibles:
+            if lugar in lugares_sensor:
+                if espacio[0][1] == 0:
+                    return {"mensaje":"Ticket invalido"},400
+                elif espacio[0][0] == 1:
+                    return {"mensaje":"EL espacio sigue estado ocupado"}
+                else:
+                    setAsignar(lugar, 0)
+                    if not FAKESENSORS:
+                        arduino.write(str(100).encode()) 
+                    print("[G]: Salida con arduino")
+            else:
+                if espacio[0][0] == 0:
+                    return {"mensaje":"Ticket invalido"},400
+                else:
+                    ocupar_desocupar(lugar,0,None)
+                    if not FAKESENSORS:
+                        arduino.write(str(100).encode()) 
+                    print("[?]: Salida sin sensores")
+        else:
+            if espacio[0][0] == 0:
+                    return {"mensaje":"Ticket invalido"},400
             else:
                 ocupar_desocupar(lugar,0,None)
-                #return {"mensaje":f"Espacio: {lugar} desocupado."}
-                mensaje = f"El espacio {lugar} ha sido desocupado."
-        else:
-            ocupar_desocupar(lugar,0,None)
-            #return {"mensaje":f"Espacio: {lugar} desocupado."}
-            mensaje = f"El espacio {lugar} ha sido desocupado."
-
-        return {"codigo":codigo,"mensaje":mensaje}, codigo
+                print("[!]: Salida sin arduino")
+        return {"mensaje":"Salida permitida"}
+        
 
 # CRUD Estacionamiento
 api.add_resource(SelectEspacios, "/espacios")
@@ -517,41 +579,45 @@ api.add_resource(UpdateAdminPassword, "/administradores/actualizar_password")
 api.add_resource(Login, "/login")
 api.add_resource(logout, "/logout")
 api.add_resource(ValidateSession, "/validar_sesion")
-api.add_resource(Test, "/Test")
 
 # ui
-#api.add_resource(lectorQR, "/ui/qr") # No sirve jajajaj
 api.add_resource(ApartarLugar, "/ui/obtener_lugar")
 api.add_resource(ApartarLugarDiscapacitado, "/ui/obtener_lugar_discapacitado")
 api.add_resource(DesocuparLugar, "/ui/desocupar_lugar/<string:lugar>")
 
-# sensores
-api.add_resource(TestSensores, "/Test/sensores")
-
 if __name__ == "__main__":
+    """
+    if isMysqlRunning():
+        setupMysql_docker()
+    else:
+        print("[Error]: No se pudo conectar con la base de datos (¿Esta activa?)")
+        raise
+    """
     try:
         try: # Arduino
-            arduino = initSensores()
-            if arduino:
+            if FAKESENSORS:
                 sensores_disponibles = True
+            else:
+                arduino = initSensores()
+                if arduino:
+                    sensores_disponibles = True
         except Exception as e:
-            print(f"[WARNING]:  No se pudo establecer conexíon con el arduino")
             print(e)
             sensores_disponibles = False
 
         if sensores_disponibles:
-            espacios = espaciosSensor()
-            for _ in espacios:
-                sensores_canales.append(Value('i', 0))
-            lugares = espacios
-            sensores = Process(target=validarEspacioOcupado, args=(arduino, espacios, sensores_canales,))
-            sensores.start()
+            #espacios = espaciosSensor()
+            lugares_sensor = ['A1','A2','A3']
+            if FAKESENSORS:
+                sensores1 = threading.Thread(target=fakevalidarEspacioOcupado, args=(lugares_sensor,DATABASE))
+            else:
+                sensores1 = threading.Thread(target=validarEspacioOcupado, args=(arduino, lugares_sensor,DATABASE))
+            sensores1.daemon = True     # Hacemos que el hilo pare junto al principal
+            sensores1.start()
         app.run()
-    except KeyboardInterrupt:
-        if sensores_canales:
-            sensores.terminate()
-            arduino.close()
-            exit()
-    
         
-    #app.run()
+    except KeyboardInterrupt:
+        if sensores_disponibles:
+            sensores1.join()
+            exit()
+        

@@ -8,3 +8,4 @@ pillow
 flask
 flask-restful
 flask-cors
+mysql.connector

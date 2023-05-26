@@ -29,7 +29,6 @@ def createTableEspacio():
     conn = sql.connect("myparking.db")
     cursor = conn.cursor() #Conecta con una consulta
     cursor.execute("""CREATE TABLE espacio (
-                        id_espacio INTEGER PRIMARY KEY,
                         no_cajon VARCHAR(5),
                         estado BOOLEAN DEFAULT FALSE,
                         fecha_hora TIMESTAMP DEFAULT NULL,
@@ -37,7 +36,9 @@ def createTableEspacio():
                         tipo VARCHAR(10),
                         discapacitado BOOLEAN DEFAULT FALSE,
                         cord_x INT,
-                        cord_y INT
+                        cord_y INT,
+                        id_espacio INTEGER AUTOINCREMENT PRIMARY KEY,
+                        asignado BOOLEAN DEFAULT FALSE
                         );
     """)
     conn.commit() #Realiza cambios
@@ -103,12 +104,10 @@ def insertFilaDEspacio():
     
 
 
-
-
 def obtenerEspacio() -> list:
     conn = sql.connect("myparking.db")
     cursor = conn.cursor() #Conecta con una consulta
-    cursor.execute("SELECT MIN(no_cajon) FROM espacio WHERE estado=0 AND discapacitado=0 AND tipo='lugar'")
+    cursor.execute("SELECT MIN(no_cajon) FROM espacio WHERE estado=0 AND discapacitado=0 AND tipo='lugar' AND asignado=0")
     espacio = cursor.fetchone()
     conn.close()
     return espacio
@@ -116,7 +115,7 @@ def obtenerEspacio() -> list:
 def obtenerEspacioDiscapacitado() -> list:
     conn = sql.connect("myparking.db")
     cursor = conn.cursor() #Conecta con una consulta
-    cursor.execute("SELECT MIN(no_cajon) FROM espacio WHERE estado=0 AND discapacitado=1 AND tipo='lugar'")
+    cursor.execute("SELECT MIN(no_cajon) FROM espacio WHERE estado=0 AND discapacitado=1 AND tipo='lugar'AND asignado=0")
     espacio = cursor.fetchone()
     conn.close()
     return espacio
@@ -197,6 +196,16 @@ def ocupar_desocupar(espacio: str, estado: bool, fecha_hora: str):
     conn.commit() #Realiza cambios
     conn.close()
 
+
+def setAsignar(espacio: str, asignación: int):
+    conn = sql.connect("myparking.db")
+    cursor = conn.cursor() #Conecta con una consulta
+    cursor.execute("UPDATE espacio SET asignado = ? where no_cajon = ?",(asignación,espacio))
+    #Actualiza el estado de un espacio
+    conn.commit() #Realiza cambios
+    conn.close()
+
+
 def selectEspacios():
     conn = sql.connect("myparking.db")
     cursor = conn.cursor() #Conecta con una consulta
@@ -238,7 +247,7 @@ def validarEspacio(noCajon, noCajonAnterior = ""):
     datos = cursor.fetchall() #Regresa los datos de la consulta (Los lee y los regresa)
     conn.commit() #Realiza cambios
     conn.close()
-    return datos 
+    return datos
 
 def consultarCajonXY(x, y):
     conn = sql.connect("myparking.db")
